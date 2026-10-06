@@ -1,6 +1,6 @@
 {
   "name": "@edlundin/pi-native-websearch",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Provider-native web search for Pi using OpenAI-compatible Responses endpoints",
   "type": "module",
   "keywords": ["pi-package", "pi", "web-search"],

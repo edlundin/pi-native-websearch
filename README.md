@@ -10,11 +10,13 @@ No route-based search service or fallback is used.
 pi install git:github.com/edlundin/pi-native-websearch
 ```
 
-Run `/reload` in an existing Pi session. For a pinned release, once published:
+Run `/reload` in an existing Pi session. For the pinned v1 release:
 
 ```sh
-pi install git:github.com/edlundin/pi-native-websearch@v0.1.0
+pi install git:github.com/edlundin/pi-native-websearch@v1
 ```
+
+The immutable `v1.0.0` tag references the same release.
 
 If you previously copied this extension into `~/.pi/agent/extensions`, move
 that copy outside the extensions directory before loading the package.
@@ -85,7 +87,16 @@ pi update --extensions
 pi remove git:github.com/edlundin/pi-native-websearch
 ```
 
-Tagged/commit installations stay pinned. Run `/reload` after changes.
+Tagged/commit installations stay pinned: `@v1` selects the v1 release and
+is not a rolling update channel. To follow branch updates, remove the pinned
+installation and install the unpinned source:
+
+```sh
+pi remove git:github.com/edlundin/pi-native-websearch@v1
+pi install git:github.com/edlundin/pi-native-websearch
+```
+
+Run `/reload` after changes.
 
 ## Development
 
