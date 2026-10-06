@@ -1,0 +1,30 @@
+{
+  "name": "@edlundin/pi-native-websearch",
+  "version": "0.1.0",
+  "description": "Provider-native web search for Pi using OpenAI-compatible Responses endpoints",
+  "type": "module",
+  "keywords": ["pi-package", "pi", "web-search"],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/edlundin/pi-native-websearch.git"
+  },
+  "files": ["src", "README.md"],
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check:package": "npm pack --dry-run"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "1.0.4",
+    "@earendil-works/pi-coding-agent": "1.0.4"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  }
+}
