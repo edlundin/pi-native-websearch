@@ -51,8 +51,9 @@ returns a researched answer, citation URLs, and token usage.
 
 1. Resolve the selected model, credentials, headers, endpoint overrides, and
    provider environment through Pi's model registry.
-2. Use Pi's built-in OpenAI Responses client with the native `web_search`
-   tool and `tool_choice: required` for this separate request only.
+2. Use Pi's built-in OpenAI Responses client, or the registered CLIProxyAPI
+   Codex provider, with the native `web_search` tool and `tool_choice: required`
+   for this separate request only.
 3. Verify a completed native search, collect citation annotations, and return
    the result to the main model.
 
@@ -66,10 +67,16 @@ configured in Pi. The proxy is responsible for upstream compatibility.
 - Accepts `openai-completions` and `openai-responses` model entries, but always
   sends search through Responses. An advertised Chat Completions endpoint
   does not guarantee that Responses or native search is supported.
+- Also accepts `cliproxyapi-codex-responses` from the CLIProxyAPI provider
+  extension. This path uses Pi's registry streaming API, preserving the
+  provider's authentication, endpoint, and Codex transport handling. Select
+  your CLIProxyAPI model with `/native-search-model provider/model-id`, or
+  leave the selection on `current` when already using it. The upstream model
+  must still support native web search.
 - Direct Codex OAuth, Azure, Anthropic, and other transports are not supported.
   They are rejected rather than sending their credentials to the wrong API.
-- Uses Pi's registry for authentication, but bypasses the selected provider's
-  custom streaming implementation. Custom transport logic is not preserved.
+- Standard model entries use registry authentication but bypass custom
+  streaming implementations; CLIProxyAPI Codex entries retain theirs.
 - Search sees the supplied query, not the main conversation history. Include
   necessary context and date/source restrictions in the query.
 - Queries are sent to your chosen provider; normal provider charges apply.

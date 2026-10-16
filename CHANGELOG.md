@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-16
+
+- fix(search): Support CLIProxyAPI Codex models through their registered provider, preserving authentication and transport handling (version 1.0.1). ([pending])
+
 ## 2026-10-06
 
 - chore(release): Publish version 1.0.0 with `v1` and `v1.0.0` references for pinned Pi installations and document how to follow extension updates. ([v1.0.0](https://github.com/edlundin/pi-native-websearch/releases/tag/v1.0.0))

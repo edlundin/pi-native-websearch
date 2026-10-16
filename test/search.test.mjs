@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { streamSimple } from '@earendil-works/pi-ai/api/openai-responses';
 // Test-only access to the installed Pi loader; production uses public APIs.
 const agentEntry = import.meta.resolve('@earendil-works/pi-coding-agent');
 const { loadExtensions } = await import(new URL('./core/extensions/loader.js', agentEntry));
@@ -71,33 +72,61 @@ test('uses registry endpoint/auth and requires native search; no confirmed searc
   });
 });
 
-test('returns completed search text, citations, and usage', async () => {
-  const item = { id: 'msg-test', type: 'message', role: 'assistant', status: 'in_progress', content: [] };
-  const annotation = { type: 'url_citation', url: 'https://example.com/release', title: 'Release', start_index: 0, end_index: 6 };
-  const events = [
-    { type: 'response.created', response: { id: 'response-test' } },
-    { type: 'response.web_search_call.completed' },
-    { type: 'response.output_item.added', output_index: 0, item },
-    { type: 'response.content_part.added', item_id: item.id, output_index: 0, content_index: 0, part: { type: 'output_text', text: '', annotations: [] } },
-    { type: 'response.output_text.delta', item_id: item.id, output_index: 0, content_index: 0, delta: 'Found a release.' },
-    { type: 'response.output_text.annotation.added', annotation },
-    { type: 'response.output_item.done', item: { ...item, status: 'completed', content: [{ type: 'output_text', text: 'Found a release.', annotations: [annotation] }] } },
-    complete,
-  ];
-  await withServer(events, async baseUrl => {
-    const result = await tool.execute('test', { query: 'Find release' }, undefined, undefined, context({ model: { ...model, baseUrl } }));
-    assert.notEqual(result.isError, true);
-    assert.equal(result.details.searchCompleted, true);
-    assert.match(result.content[0].text, /Found a release/);
-    assert.match(result.content[0].text, /https:\/\/example.com\/release/);
-    assert.deepEqual(result.details.citations, [{ url: annotation.url, title: annotation.title }]);
-    assert.equal(result.usage.totalTokens, 12);
+for (const api of ['openai-responses', 'cliproxyapi-codex-responses']) {
+  test(`returns completed search text, citations, and usage through ${api}`, async () => {
+    const item = { id: 'msg-test', type: 'message', role: 'assistant', status: 'in_progress', content: [] };
+    const annotation = { type: 'url_citation', url: 'https://example.com/release', title: 'Release', start_index: 0, end_index: 6 };
+    const events = [
+      { type: 'response.created', response: { id: 'response-test' } },
+      { type: 'response.web_search_call.completed' },
+      { type: 'response.output_item.added', output_index: 0, item },
+      { type: 'response.content_part.added', item_id: item.id, output_index: 0, content_index: 0, part: { type: 'output_text', text: '', annotations: [] } },
+      { type: 'response.output_text.delta', item_id: item.id, output_index: 0, content_index: 0, delta: 'Found a release.' },
+      { type: 'response.output_text.annotation.added', annotation },
+      { type: 'response.output_item.done', item: { ...item, status: 'completed', content: [{ type: 'output_text', text: 'Found a release.', annotations: [annotation] }] } },
+      complete,
+    ];
+    await withServer(events, async (baseUrl, requests) => {
+      const searchModel = { ...model, baseUrl, api };
+      let providerCalls = 0;
+      const ctx = context({ model: searchModel });
+      if (api === 'cliproxyapi-codex-responses') {
+        ctx.modelRegistry = {
+          streamSimple(selected, input, options) {
+            providerCalls++;
+            assert.equal(selected, searchModel);
+            assert.equal(input.messages[0].content, 'Find release');
+            assert.match(input.systemPrompt, /untrusted/);
+            assert(options.signal instanceof AbortSignal);
+            // Emulate the provider's wire adapter using the mock Responses server.
+            return streamSimple({ ...selected, api: 'openai-responses' }, input, {
+              ...options, apiKey: 'provider-owned-key',
+            });
+          },
+        };
+      }
+      const result = await tool.execute('test', { query: 'Find release' }, undefined, undefined, ctx);
+      assert.equal(providerCalls, api === 'cliproxyapi-codex-responses' ? 1 : 0);
+      assert.equal(requests.length, 1);
+      assert.deepEqual(requests[0].body.tools, [{ type: 'web_search' }]);
+      assert.equal(requests[0].body.tool_choice, 'required');
+      if (providerCalls) assert.equal(requests[0].authorization, 'Bearer provider-owned-key');
+      assert.notEqual(result.isError, true);
+      assert.equal(result.details.searchCompleted, true);
+      assert.match(result.content[0].text, /Found a release/);
+      assert.match(result.content[0].text, /https:\/\/example.com\/release/);
+      assert.deepEqual(result.details.citations, [{ url: annotation.url, title: annotation.title }]);
+      assert.equal(result.usage.totalTokens, 12);
+    });
   });
-});
+
+}
 
 test('rejects blank queries, unsupported transports, missing models, and auth failure', async () => {
   await assert.rejects(() => tool.execute('t', { query: ' ' }, undefined, undefined, context()), /blank/);
-  await assert.rejects(() => tool.execute('t', { query: 'q' }, undefined, undefined, context({ model: { ...model, api: 'anthropic-messages' } })), /not supported/);
+  for (const api of ['anthropic-messages', 'openai-codex-responses', 'azure-openai-responses', 'unknown-responses']) {
+    await assert.rejects(() => tool.execute('t', { query: 'q' }, undefined, undefined, context({ model: { ...model, api } })), /not supported/);
+  }
   await assert.rejects(() => tool.execute('t', { query: 'q' }, undefined, undefined, context({ model: undefined })), /No search model/);
   await assert.rejects(() => tool.execute('t', { query: 'q' }, undefined, undefined, context({ modelRegistry: { getApiKeyAndHeaders: async () => ({ ok: false, error: 'missing credentials' }) } })), /missing credentials/);
 });
